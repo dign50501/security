@@ -7,23 +7,10 @@
 
 using namespace std;
 
-bitset<32> sixteenBitMask = bitset<32>(0xFFFF);
-
-int s1[] = {0xE, 0x4, 0xD, 0x1, 0x2, 0xF, 0xB, 0x8, 0x3, 0xA, 0x6, 0xC, 0x5, 0x9, 0x0, 0x7};
-int s2[] = {0x5, 0x6, 0xC, 0xF, 0x8, 0xA, 0x0, 0x4, 0xB, 0x3, 0x7, 0xD, 0xE, 0x1, 0x2, 0x9};
+long sixteenBitMask = 0xFFFF;
 
 
-int p[] = {29, 1, 17, 8,
-           30, 22, 28, 6,
-           18, 4, 12, 19,
-           21, 26, 2, 20,
-           31, 10, 9, 25,
-           13, 0, 23, 15,
-           3, 27, 5, 11,
-           7, 14, 24, 16
-};
-
-bitset<32> getInput(int numberOfInputs) {
+long getInput(int numberOfInputs) {
     string output;
     for (int i = 0; i < numberOfInputs; i++) {
         int input;
@@ -31,54 +18,72 @@ bitset<32> getInput(int numberOfInputs) {
         string s = bitset<8>(static_cast<unsigned long long int>(input)).to_string();
         output += s;
     }
+    long out = bitset<32>(output).to_ulong();
 
-    return bitset<32>(output);
+    return out;
 }
 
-bitset<32> leftRotateBy(int i, const bitset<32> &key) {
-    bitset<32> rotatedKey = ((key << i) | key >> (16 - i)) & sixteenBitMask;
+long leftRotateBy(int i, const long &key) {
+    long rotatedKey = ((key << i) | key >> (16 - i)) & sixteenBitMask;
     return rotatedKey;
 }
 
 
-bitset<32> getSubKey(int i, const bitset<32> &leftKey, const bitset<32> &rightKey) {
+long getSubKey(int i, const long &leftKey, const long &rightKey) {
     return (leftRotateBy(i, leftKey) << 16) | leftRotateBy(i, rightKey);
 }
 
 
-bitset<32> SBox(const bitset<32> &intermediate) {
-    bitset<32> intermediateAfterSBox = bitset<32>(0);
-    long longIntermediate = intermediate.to_ulong();
+long SBox(const long &intermediate) {
+
+    int s1[] = {0xE, 0x4, 0xD, 0x1, 0x2, 0xF, 0xB, 0x8, 0x3, 0xA, 0x6, 0xC, 0x5, 0x9, 0x0, 0x7};
+    int s2[] = {0x5, 0x6, 0xC, 0xF, 0x8, 0xA, 0x0, 0x4, 0xB, 0x3, 0x7, 0xD, 0xE, 0x1, 0x2, 0x9};
+
+    long intermediateAfterSBox = 0;
     long validBits = 0b1111;
     for (unsigned long i = 0; i <= 28; i += 4) {
-        long temp = (longIntermediate >> i) & validBits;
-        bitset<32> tempAfterSBox;
+        long temp = (intermediate >> i) & validBits;
+        long tempAfterSBox;
         if (i % 8 != 0) { // use s1-box
-            tempAfterSBox = bitset<32>(static_cast<unsigned long long int>(s1[temp]));
+            tempAfterSBox = s1[temp];
         } else { // use s2-box
-            tempAfterSBox = bitset<32>(static_cast<unsigned long long int>(s2[temp]));
+            tempAfterSBox = s2[temp];
         }
         intermediateAfterSBox |= tempAfterSBox << i;
     }
-
     return intermediateAfterSBox;
 
 }
 
-bitset<32> permutation(const bitset<32> &s) {
-    bitset<32> temp = bitset<32>(0);
+
+long permutation(const long &s) {
+    int p[] = {29, 1, 17, 8,
+               30, 22, 28, 6,
+               18, 4, 12, 19,
+               21, 26, 2, 20,
+               31, 10, 9, 25,
+               13, 0, 23, 15,
+               3, 27, 5, 11,
+               7, 14, 24, 16
+    };
+    long temp = 0;
+    long maskBit = 0x80000000;
     for (int i = 0; i < 32; i++) {
-        int beforeBit = i;
-        int secondBit = p[i];
-        temp[31 - secondBit] = s[31 - beforeBit];
+        long num = (maskBit >> i) & s;
+        if(p[i]-i >=0) {
+            temp |= num >> (p[i] - i);
+        }else {
+            temp |= num << (i - p[i]);
+        }
+
     }
     return temp;
 }
 
-bitset<32> Ffunction(const bitset<32> &text, const bitset<32> &key) {
-    bitset<32> intermediate = bitset<32>(text) ^bitset<32>(key);
-    bitset<32> intermediateAfterSBox = SBox(intermediate);
-    bitset<32> permutationString = permutation(intermediateAfterSBox);
+long Ffunction(const long &text, const long &key) {
+    long intermediate = text ^key;
+    long intermediateAfterSBox = SBox(intermediate);
+    long permutationString = permutation(intermediateAfterSBox);
 
     return permutationString;
 
@@ -93,7 +98,8 @@ void printInHex(const string &cipher) {
     cout << '\n';
 }
 
-void printKey(const bitset<32> &key) {
+void printKey(const long &k) {
+    bitset<32> key = bitset<32>((unsigned long long int) k);
     for (unsigned long i = 0; i <= 24; i += 8) {
         bitset<32> maskBit = bitset<32>(0xFF);
         bitset<32> subNum = (key >> (24 - i)) & maskBit;
@@ -105,9 +111,9 @@ void printKey(const bitset<32> &key) {
 
 
 int main() {
-    bitset<32> leftPlain, rightPlain;
-    bitset<32> leftCipher, rightCipher, LeftGuessedCipher, rightGuessedCipher;
-
+    long leftPlain, rightPlain;
+    long leftCipher, rightCipher, LeftGuessedCipher, rightGuessedCipher;
+    long cipher, guessedCipher;
     cout << "Enter the Plaintext(ex.  0x40 0xFF 0x24 0x33 0x09 0x47 0xF6 0x10): ";
     leftPlain = getInput(4);
     rightPlain = getInput(4);
@@ -116,37 +122,37 @@ int main() {
     leftCipher = getInput(4);
     rightCipher = getInput(4);
 
+    cipher = leftCipher << 32 | rightCipher;
+
     auto bound = (long) pow(2, 32);
 
     for (long k = 0; k < bound; k++) {
-        bitset<32> leftText = leftPlain;
-        bitset<32> rightText = rightPlain;
-        bitset<32> key = bitset<32>(static_cast<unsigned long long int>(k));
-        bitset<32> leftKey = key >> 16;
-        bitset<32> rightKey = bitset<32>(0b1111111111111111) & key;;
+        long leftText = leftPlain;
+        long rightText = rightPlain;
+        long leftKey = k >> 16;
+        long rightKey = 0xFFFF & k;
 
         for (int i = 1; i <= 10; i++) {
-            bitset<32> subKey;
+            long subKey;
             subKey = getSubKey(i, leftKey, rightKey);
 
-            bitset<32> tempNextLeftText = rightText;
+            long tempNextLeftText = rightText;
             rightText = Ffunction(rightText, subKey);
-            rightText = (bitset<32>(rightText) ^ bitset<32>(leftText));
+            rightText = rightText ^ leftText;
             leftText = tempNextLeftText;
         }
 
-        if (k % 100000 == 0) {
+        if (k % 1000000 == 0) { //1000000000
             double ttt = (k / (double) bound) * 100;
-            cout << ttt << '\n';
+            cout << ttt << '%'<< '\n';
         }
 
         LeftGuessedCipher = rightText;
         rightGuessedCipher = leftText;
-        long LeftGuess = (LeftGuessedCipher ^ leftCipher).to_ulong();
-        long RightGuess = (rightGuessedCipher ^ rightCipher).to_ulong();
-        if (LeftGuess == 0 && RightGuess == 0) {
+        guessedCipher = LeftGuessedCipher << 32 | rightGuessedCipher;
+        if (guessedCipher == cipher) {
             cout << "The Key is: ";
-            printKey(key);
+            printKey(k);
             break;
         }
 
